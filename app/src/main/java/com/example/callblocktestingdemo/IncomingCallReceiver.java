@@ -4,47 +4,51 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.telephony.TelephonyManager;
+import android.view.Gravity;
 import android.widget.Toast;
-import java.lang.reflect.Method;
+
 import com.android.internal.telephony.ITelephony;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 public class IncomingCallReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-
-        ITelephony telephonyService;
+        String number = intent.getExtras().getString(TelephonyManager.EXTRA_INCOMING_NUMBER);
+        TelephonyManager telephonyManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
         try {
-            String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
-            String number = intent.getExtras().getString(TelephonyManager.EXTRA_INCOMING_NUMBER);
+            Class clazz = Class.forName(telephonyManager.getClass().getName());
+            Method method = clazz.getDeclaredMethod("getITelephony");
+            method.setAccessible(true);
+            ITelephony telephonyService = (ITelephony) method.invoke(telephonyManager);
 
-            if(state.equalsIgnoreCase(TelephonyManager.EXTRA_STATE_RINGING)){
-                TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-                try {
-                    Method m = tm.getClass().getDeclaredMethod("getITelephony");
-
-                    m.setAccessible(true);
-                    telephonyService = (ITelephony) m.invoke(tm);
-
-                    if ((number != null)) {
-                        telephonyService.endCall();
-                        Toast.makeText(context, "Ending the call from: " + number, Toast.LENGTH_SHORT).show();
-                    }
-
-                } catch (Exception e) {
-                    e.printStackTrace();
+            if(intent.getStringExtra(TelephonyManager.EXTRA_STATE).equals(TelephonyManager.EXTRA_STATE_OFFHOOK)){
+                showToast(context,"Call started...");
+            }
+            else if(intent.getStringExtra(TelephonyManager.EXTRA_STATE).equals(TelephonyManager.EXTRA_STATE_IDLE)){
+                showToast(context,"Call ended...");
+            }
+            else if(intent.getStringExtra(TelephonyManager.EXTRA_STATE).equals(TelephonyManager.EXTRA_STATE_RINGING)){
+                if(number.startsWith("+1")){
+                    telephonyService.endCall();
                 }
-
-                Toast.makeText(context, "Ring " + number, Toast.LENGTH_SHORT).show();
-
+                showToast(context,"Incoming call... " + number);
             }
-            if(state.equalsIgnoreCase(TelephonyManager.EXTRA_STATE_OFFHOOK)){
-                Toast.makeText(context, "Answered " + number, Toast.LENGTH_SHORT).show();
-            }
-            if(state.equalsIgnoreCase(TelephonyManager.EXTRA_STATE_IDLE)){
-                Toast.makeText(context, "Idle "+ number, Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
             e.printStackTrace();
         }
+    }
+
+    void showToast(Context context,String message){
+        Toast toast=Toast.makeText(context,message,Toast.LENGTH_LONG);
+        toast.setGravity(Gravity.CENTER,0,0);
+        toast.show();
     }
 }

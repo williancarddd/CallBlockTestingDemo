@@ -1,11 +1,18 @@
 package com.example.callblocktestingdemo;
 
+import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.telecom.TelecomManager;
+import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.view.Gravity;
 import android.widget.Toast;
+
+import androidx.core.app.ActivityCompat;
 
 import com.android.internal.telephony.ITelephony;
 
@@ -15,35 +22,24 @@ import java.lang.reflect.Method;
 public class IncomingCallReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        String number = intent.getExtras().getString(TelephonyManager.EXTRA_INCOMING_NUMBER);
-        TelephonyManager telephonyManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
-        try {
-            Class clazz = Class.forName(telephonyManager.getClass().getName());
-            Method method = clazz.getDeclaredMethod("getITelephony");
-            method.setAccessible(true);
-            ITelephony telephonyService = (ITelephony) method.invoke(telephonyManager);
+        TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+        TelecomManager telecomManager = (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
+        telephonyManager.listen(new PhoneStateListener() {
+            @Override
+            public void onCallStateChanged(int state, String incomingNumber) {
+                super.onCallStateChanged(state, incomingNumber);
 
-            if(intent.getStringExtra(TelephonyManager.EXTRA_STATE).equals(TelephonyManager.EXTRA_STATE_OFFHOOK)){
-                showToast(context,"Call started...");
-            }
-            else if(intent.getStringExtra(TelephonyManager.EXTRA_STATE).equals(TelephonyManager.EXTRA_STATE_IDLE)){
-                showToast(context,"Call ended...");
-            }
-            else if(intent.getStringExtra(TelephonyManager.EXTRA_STATE).equals(TelephonyManager.EXTRA_STATE_RINGING)){
-                if(number.startsWith("+1")){
-                    telephonyService.endCall();
+                if(state == 1) {
+                    showToast(context, incomingNumber);
+                    if(incomingNumber.startsWith("+1")){
+                        telecomManager.endCall();
+                    }
                 }
-                showToast(context,"Incoming call... " + number);
-            }
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        }
+
+            };
+
+        },PhoneStateListener.LISTEN_CALL_STATE);
+
     }
 
     void showToast(Context context,String message){
